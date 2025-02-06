@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">PeaceU Bible</string>
+    <string name="title_activity_main">PeaceU Bible</string>
+    <string name="package_name">com.peaceapp.bible</string>
+    <string name="custom_url_scheme">com.peaceapp.bible</string>
+</resources>

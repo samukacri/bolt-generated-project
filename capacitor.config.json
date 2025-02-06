@@ -1,0 +1,10 @@
+{
+  "appId": "com.peaceapp.bible",
+  "appName": "PeaceU Bible",
+  "webDir": "dist",
+  "plugins": {
+    "TextToSpeech": {
+      "supportedLanguages": ["pt-BR", "en-US", "es-ES"]
+    }
+  }
+}

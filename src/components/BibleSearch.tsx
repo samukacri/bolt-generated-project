@@ -1,25 +1,33 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { searchVerses } from "@/services/bibleApi";
+import { Loader2, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Search } from "lucide-react";
+//import { useQuery } from "@tanstack/react-query"; // REMOVE
+import { searchVerses } from "@/services/bibleApi";
+import useFetch from "@/hooks/useFetch"; // ADD
 
 export function BibleSearch() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
 
-  const { data: searchResults, isLoading, refetch } = useQuery({
-    queryKey: ["bible-search", searchQuery],
-    queryFn: () => searchVerses(searchQuery),
-    enabled: false,
-  });
+  const { data: searchResults, isLoading, error } = useFetch( // Use useFetch
+    searchQuery
+      ? `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/bible_verses?select=*&text=ilike.%${searchQuery}%`
+      : null, // Only fetch if there's a query
+    {
+      headers: {
+        apikey: import.meta.env.VITE_SUPABASE_KEY,
+        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_KEY}`,
+      },
+    },
+    !!searchQuery // Enable only when searchQuery is not empty
+  );
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
     setIsSearching(true);
-    await refetch();
+    // No need to refetch here, as useFetch will handle it automatically, based on the URL change
     setIsSearching(false);
   };
 
@@ -42,9 +50,9 @@ export function BibleSearch() {
         </Button>
       </div>
 
-      {searchResults?.verses && (
+      {searchResults?.data && (
         <div className="space-y-4">
-          {searchResults.verses.map((verse) => (
+          {searchResults.data.map((verse: any) => (
             <Card key={verse.id}>
               <CardContent className="pt-4">
                 <p className="font-semibold">{verse.reference}</p>
@@ -54,6 +62,8 @@ export function BibleSearch() {
           ))}
         </div>
       )}
+
+      {error && <div>Error: {error.message}</div>}
     </div>
   );
 }

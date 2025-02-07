@@ -1,11 +1,11 @@
 import axios from 'axios';
-import type { 
-  Highlight, 
-  HighlightInsert, 
-  BibleBook, 
-  BibleChapter, 
-  BibleVerse, 
-  SearchResult 
+import type {
+  Highlight,
+  HighlightInsert,
+  BibleBook,
+  BibleChapter,
+  BibleVerse,
+  SearchResult
 } from '../types';
 import { supabase } from '../integrations/supabase/client';
 
@@ -31,9 +31,28 @@ const api = axios.create({
 export const getBooks = async (): Promise<BibleBook[]> => {
   try {
     console.log('Fetching books for version:', currentBibleVersion);
-    const response = await api.get(`/bibles/${currentBibleVersion}/books`);
-    console.log('Books response:', response.data);
-    return response.data.data;
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/bible_books?select=*`;
+    console.log('getBooks URL:', url); // Log the URL
+    console.log('API Key:', import.meta.env.VITE_SUPABASE_KEY);
+
+     const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          apikey: import.meta.env.VITE_SUPABASE_KEY,
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_KEY}`
+        }
+      });
+
+      if (!response.ok) {
+        console.error('getBooks HTTP Error:', response.status, response.statusText);
+        const text = await response.text();
+        console.error('getBooks Response Body:', text); // Log the response body
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+    const data = await response.json();
+    console.log('Books response:', data);
+    return data;
   } catch (error) {
     console.error('Error fetching books:', error);
     return [];
@@ -43,9 +62,23 @@ export const getBooks = async (): Promise<BibleBook[]> => {
 export const getChapters = async (bookId: string): Promise<BibleChapter[]> => {
   try {
     console.log('Fetching chapters for book:', bookId);
-    const response = await api.get(`/bibles/${currentBibleVersion}/books/${bookId}/chapters`);
-    console.log('Chapters response:', response.data);
-    return response.data.data;
+     const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/bible_chapters?select=*,bible_verses(*)&book_id=eq.${bookId}`;
+    const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          apikey: import.meta.env.VITE_SUPABASE_KEY,
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_KEY}`
+        }
+      });
+      if (!response.ok) {
+        console.error('getChapters HTTP Error:', response.status, response.statusText);
+        const text = await response.text();
+        console.error('getChapters Response Body:', text);
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+    const data = await response.json();
+    console.log('Chapters response:', data);
+    return data;
   } catch (error) {
     console.error('Error fetching chapters:', error);
     return [];
@@ -55,44 +88,24 @@ export const getChapters = async (bookId: string): Promise<BibleChapter[]> => {
 export const getVerses = async (chapterId: string): Promise<BibleVerse[]> => {
   try {
     console.log('Fetching verses for chapter:', chapterId);
-    const response = await api.get(`/bibles/${currentBibleVersion}/chapters/${chapterId}/verses`);
-    console.log('Verses response raw:', response.data);
-    console.log('Verses data array:', response.data.data);
-    console.log('First verse example:', response.data.data[0]);
-    
-    if (!response.data?.data || !Array.isArray(response.data.data)) {
-      console.error('Invalid response format:', response.data);
-      return [];
-    }
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/bible_verses?select=*&chapter_id=eq.${chapterId}`;
+    const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          apikey: import.meta.env.VITE_SUPABASE_KEY,
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_KEY}`
+        }
+      });
 
-    return response.data.data.map((verse: any) => {
-      // Extract the text content - the API might return it in different formats
-      let verseText = '';
-      if (typeof verse.text === 'string') {
-        verseText = verse.text;
-      } else if (verse.content && typeof verse.content === 'string') {
-        verseText = verse.content;
-      } else if (verse.items && Array.isArray(verse.items)) {
-        verseText = verse.items.map((item: any) => item.text || '').join(' ');
+      if (!response.ok) {
+        console.error('getVerses HTTP Error:', response.status, response.statusText);
+        const text = await response.text();
+        console.error('getVerses Response Body:', text);
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-
-      // Clean up the text
-      verseText = verseText.trim();
-      
-      // Log if we couldn't get valid text
-      if (!verseText) {
-        console.warn('No valid text found for verse:', verse);
-      }
-
-      return {
-        id: verse.id || '',
-        orgId: verse.orgId || '',
-        bookId: verse.bookId || '',
-        chapterId: verse.chapterId || '',
-        reference: verse.reference || '',
-        text: verseText
-      };
-    }).filter(verse => verse.text); // Only return verses that have text
+    const data = await response.json();
+    console.log('Verses response raw:', data);
+    return data;
   } catch (error) {
     console.error('Error fetching verses:', error);
     return [];
@@ -144,7 +157,7 @@ export const getHighlights = async (userId: string, book: string, chapter: numbe
     .eq('user_id', userId)
     .eq('book', book)
     .eq('chapter', chapter);
-  
+
   if (error) throw error;
   return data as Highlight[];
 };
@@ -154,7 +167,7 @@ export const saveHighlight = async (highlight: HighlightInsert): Promise<Highlig
     .from('user_highlights')
     .insert([highlight])
     .select();
-  
+
   if (error) throw error;
   return data[0] as Highlight;
 };
@@ -164,15 +177,6 @@ export const deleteHighlight = async (highlightId: string): Promise<void> => {
     .from('user_highlights')
     .delete()
     .eq('id', highlightId);
-  
-  if (error) throw error;
-};
 
-export { 
-  Highlight, 
-  HighlightInsert, 
-  BibleBook, 
-  BibleChapter, 
-  BibleVerse, 
-  SearchResult 
+  if (error) throw error;
 };

@@ -1,4 +1,3 @@
-import { useQuery } from "@tanstack/react-query";
 import { useParams, useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,66 +5,89 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Heart, ArrowLeft, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+//import { useQuery } from "@tanstack/react-query"; // Removed react-query import
+import useFetch from "@/hooks/useFetch"; // Import custom useFetch hook
+import { useState, useEffect } from "react"; // Import useState and useEffect
+
 
 const PrayerDetails = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { t, currentLanguage } = useLanguage();
   const { toast } = useToast();
+  const [prayer, setPrayer] = useState(null);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [prayerLoading, setPrayerLoading] = useState(false);
+  const [favoriteLoading, setFavoriteLoading] = useState(false);
+  const [prayerError, setPrayerError] = useState(null);
 
-  const { data: prayer, isLoading: prayerLoading, error: prayerError } = useQuery({
-    queryKey: ["prayer", id],
-    queryFn: async () => {
-      if (!id) throw new Error("Prayer ID is required");
 
-      const { data, error } = await supabase
-        .from("prayers")
-        .select(`
-          *,
-          prayer_categories (
-            name,
-            name_pt,
-            name_es,
-            icon
-          )
-        `)
-        .eq("id", id)
-        .maybeSingle();
+  useEffect(() => {
+    const fetchPrayer = async () => {
+      if (!id) return;
 
-      if (error) {
-        console.error("Error fetching prayer:", error);
-        throw error;
+      setPrayerLoading(true);
+      setPrayerError(null);
+
+      try {
+        const { data, error } = await supabase
+          .from("prayers")
+          .select(`
+            *,
+            prayer_categories (
+              name,
+              name_pt,
+              name_es,
+              icon
+            )
+          `)
+          .eq("id", id)
+          .maybeSingle();
+
+        if (error) {
+          console.error("Error fetching prayer:", error);
+          setPrayerError(error);
+        } else {
+          setPrayer(data);
+        }
+      } finally {
+        setPrayerLoading(false);
       }
+    };
 
-      return data;
-    },
-    enabled: !!id,
-  });
+    fetchPrayer();
+  }, [id]);
 
-  const { data: isFavorite, isLoading: favoriteLoading } = useQuery({
-    queryKey: ["prayer-favorite", id],
-    queryFn: async () => {
-      if (!id) return false;
+  useEffect(() => {
+    const fetchFavoriteStatus = async () => {
+      if (!id) return;
 
-      const { data: session } = await supabase.auth.getSession();
-      if (!session?.session?.user) return false;
+      setFavoriteLoading(true);
 
-      const { data, error } = await supabase
-        .from("user_prayer_favorites")
-        .select("id")
-        .eq("prayer_id", id)
-        .eq("user_id", session.session.user.id)
-        .maybeSingle();
+      try {
+        const { data: session } = await supabase.auth.getSession();
+        if (!session?.session?.user) return setIsFavorite(false);
 
-      if (error) {
-        console.error("Error fetching favorite status:", error);
-        throw error;
+        const { data, error } = await supabase
+          .from("user_prayer_favorites")
+          .select("id")
+          .eq("prayer_id", id)
+          .eq("user_id", session.session.user.id)
+          .maybeSingle();
+
+        if (error) {
+          console.error("Error fetching favorite status:", error);
+        } else {
+          setIsFavorite(!!data);
+        }
+      } finally {
+        setFavoriteLoading(false);
       }
+    };
 
-      return !!data;
-    },
-    enabled: !!id,
-  });
+    fetchFavoriteStatus();
+  }, [id]);
+
 
   const toggleFavorite = async () => {
     if (!id) return;
@@ -113,6 +135,7 @@ const PrayerDetails = () => {
       }
     }
 
+    setIsFavorite(!isFavorite);
     toast({
       title: t("Success"),
       description: isFavorite ? t("Removed from favorites") : t("Added to favorites"),

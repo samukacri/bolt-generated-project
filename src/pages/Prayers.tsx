@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { BottomNav } from "@/components/BottomNav";
@@ -7,62 +7,73 @@ import { Button } from "@/components/ui/button";
 import { Heart, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+//import { useQuery } from "@tanstack/react-query"; // Removed react-query import
+import useFetch from "@/hooks/useFetch"; // Imported custom hook
 
 const Prayers = () => {
   const { t, currentLanguage } = useLanguage();
   const { toast } = useToast();
+  const [prayers, setPrayers] = useState(null);
+  const [favorites, setFavorites] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  const { data: prayers, isLoading } = useQuery({
-    queryKey: ["prayers"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("prayers")
-        .select(`
-          id,
-          title,
-          title_pt,
-          title_es,
-          content,
-          content_pt,
-          content_es,
-          category_id,
-          is_featured,
-          prayer_categories (
-            name,
-            name_pt,
-            name_es,
-            icon
-          )
-        `);
 
-      if (error) {
-        console.error("Error fetching prayers:", error);
-        throw error;
+  useEffect(() => {
+    const fetchPrayers = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/prayers?select=*,prayer_categories(*)`,
+          {
+            headers: {
+              apikey: import.meta.env.VITE_SUPABASE_KEY,
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_KEY}`,
+            },
+          },
+          true
+        );
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        setPrayers(data);
+      } catch (error) {
+        setError(error);
+      } finally {
+        setIsLoading(false);
       }
+    };
 
-      return data;
-    },
-  });
+    fetchPrayers();
+  }, []);
 
-  const { data: favorites } = useQuery({
-    queryKey: ["prayer-favorites"],
-    queryFn: async () => {
-      const { data: session } = await supabase.auth.getSession();
-      if (!session?.session?.user) return [];
+  useEffect(() => {
+    const fetchFavorites = async () => {
+      try {
+        const { data: session } = await supabase.auth.getSession();
+        if (!session?.session?.user) return setFavorites([]);
 
-      const { data, error } = await supabase
-        .from("user_prayer_favorites")
-        .select("prayer_id")
-        .eq("user_id", session.session.user.id);
+        const { data, error } = await supabase
+          .from("user_prayer_favorites")
+          .select("prayer_id")
+          .eq("user_id", session.session.user.id);
 
-      if (error) {
-        console.error("Error fetching favorites:", error);
-        throw error;
-      }
+        if (error) {
+          console.error("Error fetching favorites:", error);
+          throw error;
+        }
 
-      return data.map(fav => fav.prayer_id);
-    },
-  });
+        setFavorites(data.map(fav => fav.prayer_id));
+      } catch (error) {
+        console.error("Error fetching favorite status:", error);
+      } 
+    };
+
+    fetchFavorites();
+  }, []);
+
 
   const toggleFavorite = async (prayerId: string) => {
     const { data: session } = await supabase.auth.getSession();
@@ -110,6 +121,7 @@ const Prayers = () => {
       }
     }
 
+    setIsFavorite(!isFavorite);
     toast({
       title: t("Success"),
       description: isFavorite ? t("Removed from favorites") : t("Added to favorites"),
@@ -145,6 +157,15 @@ const Prayers = () => {
       </div>
     );
   }
+
+  if (error) {
+    return (
+      <div className="flex min-h-screen items-center justify-center flex-col gap-4">
+        <p className="text-lg text-red-500">{t("Error loading prayers")}</p>
+      </div>
+    );
+  }
+
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background pb-20">

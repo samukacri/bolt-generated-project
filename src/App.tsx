@@ -1,7 +1,7 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+//import { QueryClient, QueryClientProvider } from "@tanstack/react-query"; // REMOVE THIS
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { useState } from "react";
 import { LanguageProvider } from "./contexts/LanguageContext";
@@ -15,16 +15,16 @@ import PrayerDetails from "./pages/PrayerDetails";
 import Auth from "./pages/Auth";
 
 const App = () => {
-  const [queryClient] = useState(() => new QueryClient({
-    defaultOptions: {
-      queries: {
-        staleTime: 60 * 1000,
-      },
-    },
-  }));
+  // const [queryClient] = useState(() => new QueryClient({  // REMOVE THIS
+  //   defaultOptions: {
+  //     queries: {
+  //       staleTime: 60 * 1000,
+  //     },
+  //   },
+  // }));
 
   return (
-    <QueryClientProvider client={queryClient}>
+    // <QueryClientProvider client={queryClient}>  REMOVE THIS
       <LanguageProvider>
         <AuthProvider>
           <TooltipProvider>
@@ -44,7 +44,7 @@ const App = () => {
           </TooltipProvider>
         </AuthProvider>
       </LanguageProvider>
-    </QueryClientProvider>
+    // </QueryClientProvider> REMOVE THIS
   );
 };
 
